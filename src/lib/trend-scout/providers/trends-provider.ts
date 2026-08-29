@@ -21,7 +21,7 @@ export interface RawTrendRow {
   newsItems?: { title: string; url: string; source: string; picture?: string }[];
   relatedQueries?: string[];
   /** Provider-specific source label */
-  source: "google_trends_rss" | "fallback_curated";
+  source: "google_trends_rss" | "fallback_curated" | "trends24_in" | "twitter_agent_reach";
   estimated: boolean;
 }
 

@@ -10,6 +10,7 @@
 
 import { googleTrendsProvider } from "./providers/google-trends-provider";
 import { fallbackTrendsProvider } from "./providers/fallback-provider";
+import { twitterProvider, isTwitterConfigured } from "./providers/twitter-provider";
 import type { RawTrendRow, TrendProvider } from "./providers/trends-provider";
 import { classifyNiche } from "./classifier";
 import {
@@ -30,7 +31,7 @@ import type {
 import { countryLabel, languageLabel } from "./types";
 import { cacheReadThrough, TTL, cacheInvalidatePrefix } from "./cache";
 
-const PROVIDERS: TrendProvider[] = [googleTrendsProvider, fallbackTrendsProvider];
+const PRIMARY_PROVIDERS: TrendProvider[] = [googleTrendsProvider, fallbackTrendsProvider];
 
 export interface FetchTrendsResult {
   trends: TrendOpportunity[];
@@ -39,13 +40,55 @@ export interface FetchTrendsResult {
   rawCount: number;
   filteredByNiche: number;
   windowDaysLabel: string;
+  /** Supplementary sources that contributed trends (e.g. "twitter_agent_reach") */
+  supplementarySources: string[];
+  /** Whether Twitter cookies are configured (drives the "Configure Twitter" CTA) */
+  twitterConfigured: boolean;
 }
 
 export async function fetchTrends(filters: TrendFilters): Promise<FetchTrendsResult> {
   const cacheKey = `orch:${filters.country}:${filters.language}:${filters.niche}:${filters.timeWindow}`;
   return cacheReadThrough(cacheKey, 60 * 1000, async () => {
-    const { rows, usedProvider, usedFallback } = await loadRaw(filters.country, filters.language);
-    const filteredByTime = applyTimeWindow(rows, filters.timeWindow);
+    const primary = await loadRaw(filters.country, filters.language);
+
+    // Pull supplementary X/Twitter trends in parallel (don't block the main feed on this).
+    // We merge them on top of the primary Google Trends results so the user sees BOTH
+    // what people are searching for (Google) AND what they're tweeting about (X).
+    const supplementarySources: string[] = [];
+    let twitterRows: RawTrendRow[] = [];
+    try {
+      const available = await twitterProvider.available();
+      // Even when twitter-cli isn't configured (no cookies), the provider falls back to
+      // trends24.in — so we still get X trends without auth.
+      if (available || !isTwitterConfigured()) {
+        twitterRows = await twitterProvider.fetchRaw(filters.country, filters.language);
+        if (twitterRows.length > 0) {
+          supplementarySources.push(isTwitterConfigured() ? "twitter_agent_reach" : "trends24_in");
+        }
+      }
+    } catch (err) {
+      console.warn("[trend-scout] Twitter/trends24 supplementary fetch failed:", err);
+    }
+
+    // Merge: dedupe by title (case-insensitive). Primary (Google Trends) wins on conflicts.
+    const seenTitles = new Set<string>();
+    const mergedRows: RawTrendRow[] = [];
+    for (const r of primary.rows) {
+      const key = r.title.toLowerCase();
+      if (!seenTitles.has(key)) {
+        seenTitles.add(key);
+        mergedRows.push(r);
+      }
+    }
+    for (const r of twitterRows) {
+      const key = r.title.toLowerCase();
+      if (!seenTitles.has(key)) {
+        seenTitles.add(key);
+        mergedRows.push(r);
+      }
+    }
+
+    const filteredByTime = applyTimeWindow(mergedRows, filters.timeWindow);
     const opportunities = filteredByTime
       .map((row) => rowToOpportunity(row, filters))
       .filter((o): o is TrendOpportunity => o !== null);
@@ -59,11 +102,13 @@ export async function fetchTrends(filters: TrendFilters): Promise<FetchTrendsRes
 
     return {
       trends: byNiche.slice(0, 30),
-      usedProvider,
-      usedFallback,
-      rawCount: rows.length,
+      usedProvider: primary.usedProvider,
+      usedFallback: primary.usedFallback,
+      rawCount: mergedRows.length,
       filteredByNiche: allCount - byNiche.length,
       windowDaysLabel: windowLabel(filters.timeWindow),
+      supplementarySources,
+      twitterConfigured: isTwitterConfigured(),
     };
   });
 }
@@ -71,6 +116,7 @@ export async function fetchTrends(filters: TrendFilters): Promise<FetchTrendsRes
 export function refreshTrendsCache(): void {
   cacheInvalidatePrefix("orch:");
   cacheInvalidatePrefix("gtrss:");
+  cacheInvalidatePrefix("t24:");
 }
 
 async function loadRaw(country: string, language: string): Promise<{
@@ -78,8 +124,8 @@ async function loadRaw(country: string, language: string): Promise<{
   usedProvider: string;
   usedFallback: boolean;
 }> {
-  for (let i = 0; i < PROVIDERS.length; i++) {
-    const p = PROVIDERS[i];
+  for (let i = 0; i < PRIMARY_PROVIDERS.length; i++) {
+    const p = PRIMARY_PROVIDERS[i];
     try {
       const available = await p.available();
       if (!available) continue;
@@ -174,14 +220,28 @@ function rowToOpportunity(row: RawTrendRow, filters: TrendFilters): TrendOpportu
     score,
     rightsSafetyScore: rightsSafetyScore(row.estimated, row.newsItems ?? []),
     dataSource: row.source,
-    dataLabel: row.estimated
-      ? "Estimated — fallback dataset (Google Trends unavailable)"
-      : "Live — Google Trends RSS",
+    dataLabel: dataLabelForRow(row),
     thumbnailUrl: row.thumbnailUrl,
     thumbnailSource: row.thumbnailSource,
     newsItems: row.newsItems,
     estimated: row.estimated,
   };
+}
+
+function dataLabelForRow(row: RawTrendRow): string {
+  if (row.estimated) return "Estimated — fallback dataset (Google Trends unavailable)";
+  switch (row.source) {
+    case "google_trends_rss":
+      return "Live — Google Trends RSS";
+    case "trends24_in":
+      return "Live — X (Twitter) trends via trends24.in (no auth)";
+    case "twitter_agent_reach":
+      return "Live — X (Twitter) via Agent Reach twitter-cli";
+    case "fallback_curated":
+      return "Estimated — fallback dataset";
+    default:
+      return "Live";
+  }
 }
 
 function rightsSafetyScore(estimated: boolean, news: { source: string }[]): number {

@@ -144,6 +144,8 @@ function ScoutView({
         rawCount={meta?.rawCount ?? 0}
         filteredByNiche={meta?.filteredByNiche ?? 0}
         windowDaysLabel={meta?.windowDaysLabel ?? ""}
+        supplementarySources={meta?.supplementarySources ?? []}
+        twitterConfigured={meta?.twitterConfigured ?? false}
       />
     </div>
   );

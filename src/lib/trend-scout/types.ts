@@ -73,7 +73,9 @@ export type DataSource =
   | "google_trends_rss"
   | "fallback_curated"
   | "youtube_api"
-  | "youtube_search_url";
+  | "youtube_search_url"
+  | "trends24_in"
+  | "twitter_agent_reach";
 
 export interface TrendScoreReasoning {
   factor: string;

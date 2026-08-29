@@ -3,7 +3,7 @@
 import { useScoutStore } from "@/lib/trend-scout/store";
 import { TrendOpportunityCard } from "./TrendOpportunityCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Compass } from "lucide-react";
+import { AlertCircle, Compass, Twitter, Sparkles } from "lucide-react";
 
 interface Props {
   trends: ReturnType<typeof useScoutStore.getState>["trends"];
@@ -14,6 +14,10 @@ interface Props {
   rawCount: number;
   filteredByNiche: number;
   windowDaysLabel: string;
+  /** Supplementary sources that contributed trends (e.g. ["trends24_in"]) */
+  supplementarySources?: string[];
+  /** Whether Twitter cookies are configured (drives the "Configure Twitter" CTA) */
+  twitterConfigured?: boolean;
 }
 
 export function TrendFeed({
@@ -25,6 +29,8 @@ export function TrendFeed({
   rawCount,
   filteredByNiche,
   windowDaysLabel,
+  supplementarySources = [],
+  twitterConfigured = false,
 }: Props) {
   if (loading) {
     return (
@@ -53,8 +59,8 @@ export function TrendFeed({
         <h3 className="text-sm font-semibold mb-1">No opportunities right now</h3>
         <p className="text-xs text-[var(--pr-text-dim)] max-w-md mx-auto">
           The provider didn’t return any trends for this country + niche combination in the selected
-          time window. Try widening the niche, switching the time window to <em>Past 24 hours</em>, or
-          refreshing in a few minutes.
+          time window. Try widening the niche to <em>All niches</em>, switching the time window to{" "}
+          <em>Past 24 hours</em>, or refreshing in a few minutes.
         </p>
       </div>
     );
@@ -69,6 +75,8 @@ export function TrendFeed({
         shownCount={trends.length}
         filteredByNiche={filteredByNiche}
         windowDaysLabel={windowDaysLabel}
+        supplementarySources={supplementarySources}
+        twitterConfigured={twitterConfigured}
       />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
         {trends.map((t, i) => (
@@ -86,7 +94,9 @@ function FeedStatusBar({
   shownCount,
   filteredByNiche,
   windowDaysLabel,
-}: Pick<Props, "usedProvider" | "usedFallback" | "rawCount" | "filteredByNiche" | "windowDaysLabel"> & { shownCount: number }) {
+  supplementarySources = [],
+  twitterConfigured = false,
+}: Pick<Props, "usedProvider" | "usedFallback" | "rawCount" | "filteredByNiche" | "windowDaysLabel" | "supplementarySources" | "twitterConfigured"> & { shownCount: number }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[var(--pr-text-mute)]">
       <span className="inline-flex items-center gap-1.5">
@@ -103,6 +113,20 @@ function FeedStatusBar({
           </strong>
         </span>
       </span>
+      {supplementarySources.length > 0 && (
+        <span className="inline-flex items-center gap-1.5">
+          <Twitter className="h-3 w-3 text-[var(--pr-electric)]" />
+          <span>
+            + X: <strong className="text-foreground/80">
+              {supplementarySources.includes("twitter_agent_reach")
+                ? "Agent Reach twitter-cli"
+                : supplementarySources.includes("trends24_in")
+                ? "trends24.in (no auth)"
+                : "—"}
+            </strong>
+          </span>
+        </span>
+      )}
       <span>
         Showing <strong className="text-foreground/80">{shownCount}</strong> of {rawCount} raw trends
       </span>
@@ -112,6 +136,15 @@ function FeedStatusBar({
         </span>
       )}
       <span className="ml-auto text-[var(--pr-text-mute)] italic">{windowDaysLabel}</span>
+      {!twitterConfigured && (
+        <span
+          title="Trend Scout pulls X trends from trends24.in (no auth). Configure Agent Reach twitter-cli with your cookies to get richer data (real tweet counts, search access)."
+          className="inline-flex items-center gap-1 text-[var(--pr-gold)] cursor-help"
+        >
+          <Sparkles className="h-3 w-3" />
+          <span>Configure X for richer data</span>
+        </span>
+      )}
     </div>
   );
 }

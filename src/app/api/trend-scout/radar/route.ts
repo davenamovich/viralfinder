@@ -56,6 +56,10 @@ async function buildRadar(): Promise<RadarData> {
   for (const r of byMarket) {
     allTrends.push(...r.trends);
     sourceMix.set(r.usedProvider, (sourceMix.get(r.usedProvider) ?? 0) + 1);
+    // Also count supplementary sources (e.g. trends24_in, twitter_agent_reach)
+    for (const supp of r.supplementarySources ?? []) {
+      sourceMix.set(supp, (sourceMix.get(supp) ?? 0) + 1);
+    }
   }
 
   // dedupe by title (trends can show up in multiple markets)

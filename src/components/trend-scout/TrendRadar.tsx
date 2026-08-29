@@ -86,15 +86,27 @@ export function TrendRadar() {
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--pr-text-mute)]">
           <span>Sources:</span>
-          {data.dataSourceMix.map((s) => (
-            <span
-              key={s.source}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]"
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${s.source === "google_trends_rss" ? "bg-[var(--pr-electric)]" : "bg-[var(--pr-gold)]"}`} />
-              {s.source === "google_trends_rss" ? "Google Trends RSS" : "Fallback"} ({s.count})
-            </span>
-          ))}
+          {data.dataSourceMix.map((s) => {
+            const label =
+              s.source === "google_trends_rss" ? "Google Trends RSS"
+              : s.source === "trends24_in" ? "X (trends24.in)"
+              : s.source === "twitter_agent_reach" ? "X (Agent Reach twitter-cli)"
+              : s.source === "fallback_curated" ? "Curated fallback"
+              : s.source;
+            const color =
+              s.source === "google_trends_rss" ? "bg-[var(--pr-electric)]"
+              : s.source === "trends24_in" || s.source === "twitter_agent_reach" ? "bg-[var(--pr-gold)]"
+              : "bg-foreground/40";
+            return (
+              <span
+                key={s.source}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]"
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${color}`} />
+                {label} ({s.count})
+              </span>
+            );
+          })}
         </div>
       </header>
 

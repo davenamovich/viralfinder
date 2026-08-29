@@ -65,7 +65,11 @@ export const useScoutStore = create<ScoutState>((set) => ({
   filters: {
     country: "US",
     language: "en",
-    niche: "AI",
+    // Default to "All" so the feed always populates. Today's Google Trends
+    // items often don't fall into a single niche (sports, celebs, breaking
+    // news) — defaulting to a specific niche shows an empty feed and feels
+    // broken. Users who want a specific niche can filter via the dropdown.
+    niche: "All",
     timeWindow: "24h",
     contentType: "Clip",
   },
