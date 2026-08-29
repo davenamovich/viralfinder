@@ -4,20 +4,24 @@ import { useEffect, useState } from "react";
 import type { SourceVideo, TrendOpportunity } from "@/lib/trend-scout/types";
 import { SourceVideoCard } from "./SourceVideoCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, ExternalLink, Key, Search, Youtube } from "lucide-react";
+import { AlertCircle, ExternalLink, Key, Search, Youtube, Zap, FileText } from "lucide-react";
 
 interface Props {
   trend: TrendOpportunity;
   onSendToClip: (video: SourceVideo) => void;
 }
 
+type SourceStatus = "ok" | "missing_key" | "error" | "idle" | "fallback_ytdlp";
+
 interface State {
   loading: boolean;
   videos: SourceVideo[];
-  status: "ok" | "missing_key" | "error" | "idle";
+  status: SourceStatus;
   message: string;
   searchUrl: string;
   dataSource: string;
+  ytdlpAvailable: boolean;
+  transcriptsEnabled: boolean;
 }
 
 export function SourceVideoFinder({ trend, onSendToClip }: Props) {
@@ -28,6 +32,8 @@ export function SourceVideoFinder({ trend, onSendToClip }: Props) {
     message: "",
     searchUrl: "",
     dataSource: "",
+    ytdlpAvailable: false,
+    transcriptsEnabled: false,
   });
 
   useEffect(() => {
@@ -38,7 +44,7 @@ export function SourceVideoFinder({ trend, onSendToClip }: Props) {
         const params = new URLSearchParams({
           query: trend.title,
           language: trend.language,
-          days: "7",
+          days: "30", // widen since yt-dlp fallback doesn't have the API's date filter
         });
         for (const q of trend.relatedQueries.slice(0, 3)) params.append("related", q);
         const res = await fetch(`/api/trend-scout/sources?${params.toString()}`);
@@ -56,6 +62,8 @@ export function SourceVideoFinder({ trend, onSendToClip }: Props) {
             message: e instanceof Error ? e.message : "Search failed",
             searchUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(trend.title)}`,
             dataSource: "youtube_search_url",
+            ytdlpAvailable: false,
+            transcriptsEnabled: false,
           });
         }
       }
@@ -67,10 +75,18 @@ export function SourceVideoFinder({ trend, onSendToClip }: Props) {
 
   if (state.loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-56 rounded-xl bg-white/[0.04]" />
-        ))}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-xs text-[var(--pr-text-mute)]">
+          <Zap className="h-3.5 w-3.5 text-[var(--pr-electric)] animate-pulse" />
+          <span>
+            Searching YouTube via Agent Reach yt-dlp + best-effort transcript fetch…
+          </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-56 rounded-xl bg-white/[0.04]" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -80,11 +96,11 @@ export function SourceVideoFinder({ trend, onSendToClip }: Props) {
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 text-center">
         <div className="inline-flex items-center gap-2 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full mb-3">
           <Key className="h-3.5 w-3.5" />
-          YouTube Data API key not configured
+          No YouTube search backend available
         </div>
         <h3 className="text-sm font-semibold mb-2">Trend Scout will not fake search results.</h3>
         <p className="text-xs text-[var(--pr-text-dim)] max-w-md mx-auto mb-4">
-          To enable in-app source video search, set the <code className="text-[var(--pr-electric)]">YOUTUBE_API_KEY</code> environment variable. Until then, you can open the YouTube search for this trend in a new tab and pick your source manually.
+          To enable in-app source video search, either set the <code className="text-[var(--pr-electric)]">YOUTUBE_API_KEY</code> environment variable or install Agent Reach (which provides a no-API-key yt-dlp search). Until then, open the YouTube search for this trend in a new tab and pick your source manually.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2">
           <a
@@ -144,14 +160,27 @@ export function SourceVideoFinder({ trend, onSendToClip }: Props) {
   }
 
   // OK — show source cards
+  const isYtdlp = state.status === "fallback_ytdlp" || state.dataSource === "youtube_search_url";
+  const sourceLabel = state.status === "fallback_ytdlp"
+    ? "Agent Reach yt-dlp (no API key)"
+    : state.dataSource === "youtube_api"
+    ? "YouTube Data API"
+    : "YouTube search URL";
+
   return (
     <div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--pr-text-mute)] mb-3">
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-[var(--pr-electric)]" />
-          Source: <strong className="text-foreground/80">{state.dataSource === "youtube_api" ? "YouTube Data API" : "YouTube search URL"}</strong>
+          <span className={`h-2 w-2 rounded-full ${isYtdlp ? "bg-[var(--pr-gold)]" : "bg-[var(--pr-electric)]"}`} />
+          Source: <strong className="text-foreground/80">{sourceLabel}</strong>
         </span>
         <span>{state.videos.length} results</span>
+        {state.transcriptsEnabled && (
+          <span className="inline-flex items-center gap-1 text-[var(--pr-electric)]">
+            <FileText className="h-3 w-3" />
+            Transcripts best-effort (top 4 videos)
+          </span>
+        )}
         <a
           href={state.searchUrl}
           target="_blank"

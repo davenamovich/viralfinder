@@ -30,6 +30,7 @@ export function TrendDetail({ trend }: Props) {
   const [brief, setBrief] = useState<ContentBrief | null>(null);
   const [briefState, setBriefState] = useState<"loading" | "llm" | "fallback">("loading");
   const [briefRaw, setBriefRaw] = useState<string | undefined>(undefined);
+  const [briefExaSources, setBriefExaSources] = useState<number>(0);
   const [selectedSource, setSelectedSource] = useState<SourceVideo | null>(null);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
 
@@ -39,6 +40,7 @@ export function TrendDetail({ trend }: Props) {
     setBrief(null);
     setBriefState("loading");
     setBriefRaw(undefined);
+    setBriefExaSources(0);
     (async () => {
       try {
         const res = await fetch("/api/trend-scout/brief", {
@@ -47,11 +49,18 @@ export function TrendDetail({ trend }: Props) {
           body: JSON.stringify({ trend }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as { brief: ContentBrief; source: "llm" | "fallback"; raw?: string };
+        const data = (await res.json()) as {
+          brief: ContentBrief;
+          source: "llm" | "fallback";
+          raw?: string;
+          enrichedWithExa?: boolean;
+          exaSources?: number;
+        };
         if (!cancelled) {
           setBrief(data.brief);
           setBriefState(data.source);
           setBriefRaw(data.raw);
+          setBriefExaSources(data.exaSources ?? 0);
           // Preselect the first two suggested languages
           setSelectedLanguages(data.brief.suggestedLanguages.slice(0, 2));
         }
@@ -209,7 +218,7 @@ export function TrendDetail({ trend }: Props) {
         </TabsList>
 
         <TabsContent value="brief" className="mt-4 space-y-4">
-          <ContentBriefView brief={brief ?? fallbackBriefView(trend)} trend={trend} source={briefState} raw={briefRaw} />
+          <ContentBriefView brief={brief ?? fallbackBriefView(trend)} trend={trend} source={briefState} raw={briefRaw} exaSources={briefExaSources} />
           <TrendScoreBreakdown score={trend.score} />
         </TabsContent>
 

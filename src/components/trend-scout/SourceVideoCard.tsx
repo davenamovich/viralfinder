@@ -1,8 +1,8 @@
 "use client";
 
 import type { SourceVideo } from "@/lib/trend-scout/types";
-import { rightsStatusLabel } from "@/lib/trend-scout/providers/youtube-provider";
-import { Check, Shield, ShieldAlert, ShieldCheck, ExternalLink, Send, Clock, Eye } from "lucide-react";
+import { rightsStatusLabel } from "@/lib/trend-scout/rights";
+import { Check, Shield, ShieldAlert, ShieldCheck, ExternalLink, Send, Clock, Eye, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -78,15 +78,16 @@ export function SourceVideoCard({ video, onSend }: Props) {
           </span>
           <span className="ml-auto inline-flex items-center gap-1 text-[var(--pr-text-mute)]">
             source: <span className="text-[var(--pr-text-dim)]">
-              {video.dataSource === "youtube_api" ? "YouTube Data API" : "YouTube search URL"}
+              {video.dataSource === "youtube_api" ? "YouTube Data API" : "Agent Reach yt-dlp"}
             </span>
           </span>
         </div>
 
-        {video.estimatedClipMoments && video.estimatedClipMoments.length > 0 && (
+        {video.estimatedClipMoments && video.estimatedClipMoments.length > 0 ? (
           <div className="mb-3 rounded-lg bg-white/[0.02] border border-white/[0.04] p-2">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--pr-text-mute)] mb-1">
-              Estimated best clip moments
+            <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--pr-text-mute)] mb-1 inline-flex items-center gap-1.5">
+              <FileText className="h-3 w-3 text-[var(--pr-electric)]" />
+              Estimated best clip moments (from transcript)
             </div>
             <ul className="space-y-1">
               {video.estimatedClipMoments.slice(0, 3).map((m, i) => (
@@ -96,6 +97,10 @@ export function SourceVideoCard({ video, onSend }: Props) {
                 </li>
               ))}
             </ul>
+          </div>
+        ) : (
+          <div className="mb-3 text-[10px] text-[var(--pr-text-mute)] italic">
+            Transcript unavailable — clip moments not extracted (yt-dlp bot-blocked, no captions, or no transcript fetch attempted).
           </div>
         )}
 
