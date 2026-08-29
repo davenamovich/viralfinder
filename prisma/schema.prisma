@@ -1,0 +1,75 @@
+// This is the Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// P&R Trend Scout — real user actions (no fake analytics).
+// These records are only ever created by explicit user actions
+// (save for later, send to /clip, rebuild for world, create preview).
+model SavedTrend {
+  id           String   @id @default(cuid())
+  trendId      String
+  trendTitle   String
+  niche        String?
+  country      String?
+  language     String?
+  savedAt     DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@unique([trendId])
+  @@index([savedAt])
+}
+
+model UsedTrend {
+  id              String   @id @default(cuid())
+  trendId         String
+  trendTitle      String
+  action          String   // create_original | send_to_clip | rebuild_for_world | create_preview
+  format          String?  // Clip | Slideshow | Hot Take | Story | Meme Video | Song
+  targetLanguages String?  // comma-separated
+  sourceUrl       String?
+  briefSummary    String?
+  usedAt          DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@index([trendId])
+  @@index([usedAt])
+  @@index([action])
+}
+
+// Cached trend snapshots so 7d / 30d windows can be built honestly
+// from real accumulated data instead of being faked.
+model TrendSnapshot {
+  id           String   @id @default(cuid())
+  country      String
+  language     String
+  payload      String   // JSON-stringified TrendOpportunity[]
+  capturedAt   DateTime @default(now())
+
+  @@index([country, language, capturedAt])
+}
