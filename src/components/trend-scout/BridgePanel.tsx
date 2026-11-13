@@ -771,8 +771,8 @@ function SettingsDialog({
             </div>
             <p className="text-[10px] text-[var(--pr-text-mute)] mt-1">
               Get your key from{" "}
-              <a href="https://bot.plunderandriffle.com" target="_blank" rel="noopener noreferrer" className="text-[var(--pr-electric)] hover:underline">
-                bot.plunderandriffle.com
+              <a href="https://www.plunderandriffle.com" target="_blank" rel="noopener noreferrer" className="text-[var(--pr-electric)] hover:underline">
+                 www.plunderandriffle.com
               </a>{" "}
               — required for verify + create + mp4.
             </p>

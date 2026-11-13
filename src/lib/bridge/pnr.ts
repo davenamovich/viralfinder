@@ -25,7 +25,7 @@
  */
 
 const PNR_MCP_URL =
-  process.env.PNR_MCP_URL ?? "https://bot.plunderandriffle.com/api/mcp";
+  process.env.PNR_MCP_URL ?? "https://www.plunderandriffle.com/api/mcp";
 
 /**
  * BYOK: P&R MCP key. Initialized from process.env.PNR_MCP_KEY at module
