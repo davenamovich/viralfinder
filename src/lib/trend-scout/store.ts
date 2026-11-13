@@ -32,6 +32,18 @@ interface ScoutState {
   selectedTrendId: string | null;
   selectTrend: (id: string | null) => void;
 
+  /**
+   * One-click bridge action — when the user clicks a Meme / iMessage / Hybrid
+   * / Roast button on a trend card, we set this so the TrendDetail knows to
+   * switch to the Bridge tab with the format preselected and auto-run on.
+   * Cleared after TrendDetail consumes it.
+   */
+  oneClickBridge: {
+    uiFormat: string; // "Meme" | "iMessage" | "Hybrid" | "Roast" | "Hot Take" | "Carousel"
+    autoRun: boolean;
+  } | null;
+  setOneClickBridge: (v: ScoutState["oneClickBridge"]) => void;
+
   /** cached trends loaded from the API */
   trends: TrendOpportunity[];
   setTrends: (trends: TrendOpportunity[]) => void;
@@ -78,6 +90,9 @@ export const useScoutStore = create<ScoutState>((set) => ({
 
   selectedTrendId: null,
   selectTrend: (id) => set({ selectedTrendId: id }),
+
+  oneClickBridge: null,
+  setOneClickBridge: (v) => set({ oneClickBridge: v }),
 
   trends: [],
   setTrends: (trends) => set({ trends }),

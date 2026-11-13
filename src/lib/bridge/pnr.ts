@@ -26,7 +26,28 @@
 
 const PNR_MCP_URL =
   process.env.PNR_MCP_URL ?? "https://bot.plunderandriffle.com/api/mcp";
-const PNR_MCP_KEY = process.env.PNR_MCP_KEY ?? "";
+
+/**
+ * BYOK: P&R MCP key. Initialized from process.env.PNR_MCP_KEY at module
+ * load, but can be overridden per-request by `setPnrKeyOverride()` so
+ * the user can paste their key in the UI without server-side env vars.
+ *
+ * The override is module-level (in-memory only) and applies to all
+ * subsequent pnrCall() invocations in this process — the /api/bridge
+ * route sets it at the start of each request. The override is never
+ * persisted to disk.
+ */
+let PNR_MCP_KEY = process.env.PNR_MCP_KEY ?? "";
+
+/** Set the P&R MCP key for this process (BYOK override). */
+export function setPnrKeyOverride(key: string): void {
+  PNR_MCP_KEY = key;
+}
+
+/** Get the currently-active P&R key (server env var or BYOK override). */
+export function getPnrKey(): string {
+  return PNR_MCP_KEY;
+}
 
 export interface PnrConfig {
   url: string;
@@ -114,7 +135,7 @@ export async function pnrCall(
     return {
       ok: false,
       error:
-        "PNR_MCP_KEY not configured. Set it server-side (process.env.PNR_MCP_KEY). Never expose it to the client.",
+        "P&R MCP key not configured. Set PNR_MCP_KEY server-side OR paste your key in the Bridge Settings panel (BYOK). Never expose it to the client.",
       code: "missing_key",
     };
   }

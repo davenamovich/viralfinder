@@ -21,8 +21,22 @@ interface Props {
   index?: number;
 }
 
+/**
+ * One-click format buttons on the trend card.
+ * Maps UI labels to the bridge's `uiFormat` (resolved to MCP format + brief flavor server-side).
+ * "Meme" → image, "iMessage" → hybrid, "Hybrid" → hybrid, "Roast" → hottake with roast brief.
+ */
+const ONE_CLICK_FORMATS: { label: string; icon: string; desc: string; tone: "electric" | "gold" | "emerald" | "violet" }[] = [
+  { label: "Meme", icon: "😎", desc: "Single meme image — humor", tone: "gold" },
+  { label: "iMessage", icon: "💬", desc: "iMessage thread — story", tone: "emerald" },
+  { label: "Hybrid", icon: "🔀", desc: "Mixed-format — when one isn't enough", tone: "violet" },
+  { label: "Roast", icon: "🔥", desc: "Pointed, humorous takedown — punch up", tone: "gold" },
+];
+
 export function TrendOpportunityCard({ trend, index = 0 }: Props) {
   const selectTrend = useScoutStore((s) => s.selectTrend);
+  const setOneClickBridge = useScoutStore((s) => s.setOneClickBridge);
+  const setDetailTab = useScoutStore((s) => s.setDetailTab);
   const direction = directionMeta(trend.direction);
   const emotion = emotionMeta(trend.audienceEmotion);
 
@@ -132,6 +146,36 @@ export function TrendOpportunityCard({ trend, index = 0 }: Props) {
             ))}
           </div>
         )}
+
+        {/* One-click Bridge buttons — Meme / iMessage / Hybrid / Roast */}
+        <div className="mb-3 grid grid-cols-2 gap-1.5">
+          {ONE_CLICK_FORMATS.map((f) => (
+            <button
+              key={f.label}
+              onClick={(e) => {
+                e.stopPropagation();
+                setOneClickBridge({ uiFormat: f.label, autoRun: true });
+                setDetailTab("bridge");
+                selectTrend(trend.id);
+              }}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-all",
+                "bg-white/[0.03] border-white/[0.08] text-foreground/85 hover:bg-white/[0.07]",
+                f.tone === "gold"
+                  ? "hover:border-[var(--pr-gold)]/40 hover:text-[var(--pr-gold)]"
+                  : f.tone === "emerald"
+                  ? "hover:border-emerald-500/40 hover:text-emerald-300"
+                  : f.tone === "violet"
+                  ? "hover:border-violet-500/40 hover:text-violet-300"
+                  : "hover:border-[var(--pr-electric)]/40 hover:text-[var(--pr-electric)]",
+              )}
+              title={f.desc}
+            >
+              <span className="text-xs">{f.icon}</span>
+              <span>{f.label}</span>
+            </button>
+          ))}
+        </div>
 
         {/* Actions */}
         <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/[0.06]">

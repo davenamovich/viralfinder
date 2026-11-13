@@ -30,9 +30,29 @@
  */
 
 const AGENT37_URL = process.env.AGENT37_URL ?? "";
-const AGENT37_KEY = process.env.AGENT37_KEY ?? process.env.AGENT37_API_KEY ?? "";
 const AGENT37_CONTRACT = process.env.AGENT37_CONTRACT ?? "auto";
 const AGENT37_TEMPLATE = process.env.AGENT37_TEMPLATE ?? "agent37-hermes";
+
+/**
+ * BYOK: Agent 37 key. Initialized from process.env at module load, but
+ * can be overridden per-request by `setAgent37KeyOverride()` so the user
+ * can paste their key in the UI without server-side env vars.
+ *
+ * The override is module-level (in-memory only) and applies to all
+ * subsequent agent37.ts calls in this process — the /api/bridge route
+ * sets it at the start of each request. Never persisted to disk.
+ */
+let AGENT37_KEY = process.env.AGENT37_KEY ?? process.env.AGENT37_API_KEY ?? "";
+
+/** Set the Agent 37 key for this process (BYOK override). */
+export function setAgent37KeyOverride(key: string): void {
+  AGENT37_KEY = key;
+}
+
+/** Get the currently-active Agent 37 key (server env var or BYOK override). */
+export function getAgent37Key(): string {
+  return AGENT37_KEY;
+}
 
 // --- shared types ---
 
@@ -86,7 +106,9 @@ export interface HandOffResult {
 // --- public functions ---
 
 export function isAgent37Configured(): boolean {
-  return !!(AGENT37_KEY && (AGENT37_URL || process.env.AGENT37_API_KEY));
+  // AGENT37_KEY is now a `let` (BYOK override applies), so any non-empty value
+  // means Agent 37 is configured.
+  return !!AGENT37_KEY;
 }
 
 export function agent37Mode(): "custom_contract" | "hermes_chat" | "not_configured" {
@@ -95,9 +117,8 @@ export function agent37Mode(): "custom_contract" | "hermes_chat" | "not_configur
   if (AGENT37_CONTRACT === "hermes") return "hermes_chat";
   // auto: prefer AGENT37_URL if set (the user is hosting a contract server)
   if (AGENT37_URL) return "custom_contract";
-  // Otherwise, if we have an API key, fall back to Hermes chat
-  if (process.env.AGENT37_API_KEY) return "hermes_chat";
-  return "not_configured";
+  // Otherwise the key alone is enough to use Hermes chat
+  return "hermes_chat";
 }
 
 export async function scoutTrends(args: ScoutTrendsArgs): Promise<ScoutTrendsResult> {

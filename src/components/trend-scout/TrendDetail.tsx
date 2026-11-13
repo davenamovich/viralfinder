@@ -27,6 +27,20 @@ export function TrendDetail({ trend }: Props) {
   const setView = useScoutStore((s) => s.setView);
   const detailTab = useScoutStore((s) => s.detailTab);
   const setDetailTab = useScoutStore((s) => s.setDetailTab);
+  const oneClickBridge = useScoutStore((s) => s.oneClickBridge);
+  const setOneClickBridge = useScoutStore((s) => s.setOneClickBridge);
+
+  // Capture one-click bridge intent on first render, then clear it so it
+  // doesn't re-fire when the user manually switches tabs back to Bridge.
+  const [consumedOneClick, setConsumedOneClick] = useState<
+    { uiFormat: string; autoRun: boolean } | null
+  >(null);
+  useEffect(() => {
+    if (oneClickBridge) {
+      setConsumedOneClick(oneClickBridge);
+      setOneClickBridge(null);
+    }
+  }, [oneClickBridge, setOneClickBridge]);
 
   const [brief, setBrief] = useState<ContentBrief | null>(null);
   const [briefState, setBriefState] = useState<"loading" | "llm" | "fallback">("loading");
@@ -254,7 +268,11 @@ export function TrendDetail({ trend }: Props) {
         </TabsContent>
 
         <TabsContent value="bridge" className="mt-4">
-          <BridgePanel trend={trend} />
+          <BridgePanel
+            trend={trend}
+            initialUiFormat={consumedOneClick?.uiFormat}
+            autoRun={consumedOneClick?.autoRun}
+          />
         </TabsContent>
       </Tabs>
     </motion.div>

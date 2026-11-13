@@ -37,7 +37,53 @@ import {
 
 // --- shared types ---
 
+/**
+ * UI format labels — include user-facing aliases (meme, imessage, roast)
+ * that map to the spec's 4 canonical MCP formats. The P&R MCP spec
+ * says: 'hottake' for opinions, 'carousel' for explainers, 'hybrid' for
+ * iMessage threads, 'image' for a single meme.
+ *
+ * "roast" is a hot-take subtype — at the MCP layer we send `hottake` with
+ * a roast-flavored brief. If the MCP later adds native roast support, we
+ * can change the mapping here without touching the UI.
+ */
 export type PipelineFormat = "hottake" | "carousel" | "hybrid" | "image";
+
+/** UI label → MCP format + brief flavor */
+export interface UiFormat {
+  /** UI button label */
+  label: string;
+  /** MCP format value passed to generate_ad_creative */
+  format: PipelineFormat;
+  /** Short description shown under the label */
+  desc: string;
+  /** Brief fragment appended to the create call to flavor the output */
+  briefFlavor?: string;
+  /** Emoji / icon */
+  icon: string;
+}
+
+export const UI_FORMATS: UiFormat[] = [
+  { label: "Hot Take", format: "hottake", desc: "Opinion — outrage, identity, contrarian angles", icon: "🔥" },
+  { label: "Carousel", format: "carousel", desc: "Explainer — curiosity, useful takeaways", icon: "📊" },
+  { label: "iMessage", format: "hybrid", desc: "iMessage thread — aspiration, story", icon: "💬" },
+  { label: "Hybrid", format: "hybrid", desc: "Mixed-format piece — best when one format can't carry it alone", icon: "🔀" },
+  { label: "Meme", format: "image", desc: "Single meme image — humor", icon: "😎" },
+  {
+    label: "Roast",
+    format: "hottake",
+    desc: "Pointed, humorous takedown — a hot-take subtype",
+    icon: "🔥",
+    briefFlavor: "Make this a ROAST — pointed, humorous, takes the trend down a peg without being cruel. Punch up, not down.",
+  },
+];
+
+/** Get the MCP format + brief for a UI label (e.g. "Roast" → "hottake" + roast brief). */
+export function resolveFormat(uiLabel: string): { format: PipelineFormat; brief?: string } {
+  const f = UI_FORMATS.find((u) => u.label.toLowerCase() === uiLabel.toLowerCase());
+  if (!f) return { format: "hottake" };
+  return { format: f.format, brief: f.briefFlavor };
+}
 
 export interface ScoredTrend extends Agent37Trend {
   score: number; // 0–100
@@ -182,9 +228,12 @@ export async function stepCreate(
   brandProfile: unknown,
   sessionId: string,
   onProgress?: (s: PnrJobStatus) => void,
+  /** Optional brief flavor (e.g. roast-specific instructions). Appended to the base brief. */
+  briefFlavor?: string,
 ): Promise<CreatePreviewResult> {
   const cfg = getPnrConfig();
-  const brief = `${trend.title} — angle: ${trend.niche ?? "general"} — audience: P&R viewer`;
+  let brief = `${trend.title} — angle: ${trend.niche ?? "general"} — audience: P&R viewer`;
+  if (briefFlavor) brief += ` — ${briefFlavor}`;
   const r = await pnrGenerateAdCreative(
     { topic: trend.title, format, brandProfile, brief },
     sessionId,
