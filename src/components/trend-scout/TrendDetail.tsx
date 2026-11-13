@@ -12,6 +12,7 @@ import { ContentBriefView } from "./ContentBriefView";
 import { SourceVideoFinder } from "./SourceVideoFinder";
 import { InternationalPanel } from "./InternationalPanel";
 import { PRActions } from "./PRActions";
+import { BridgePanel } from "./BridgePanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { BadgeCheck, ChevronLeft, Clock, ExternalLink, Globe, Lightbulb, Rocket, Search, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
@@ -215,6 +216,9 @@ export function TrendDetail({ trend }: Props) {
           <TabsTrigger value="actions" className="data-[state=active]:bg-[var(--pr-electric)]/15 data-[state=active]:text-[var(--pr-electric)] text-xs">
             <Rocket className="h-3.5 w-3.5 mr-1.5" /> Send to P&R
           </TabsTrigger>
+          <TabsTrigger value="bridge" className="data-[state=active]:bg-[var(--pr-gold)]/15 data-[state=active]:text-[var(--pr-gold)] text-xs">
+            <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Bridge
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="brief" className="mt-4 space-y-4">
@@ -247,6 +251,10 @@ export function TrendDetail({ trend }: Props) {
             selectedLanguages={selectedLanguages}
             onClearSource={() => setSelectedSource(null)}
           />
+        </TabsContent>
+
+        <TabsContent value="bridge" className="mt-4">
+          <BridgePanel trend={trend} />
         </TabsContent>
       </Tabs>
     </motion.div>

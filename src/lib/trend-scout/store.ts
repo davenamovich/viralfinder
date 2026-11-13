@@ -41,7 +41,7 @@ interface ScoutState {
   setError: (s: string | null) => void;
 
   /** the active tab on the trend detail view */
-  detailTab: "brief" | "sources" | "international" | "actions";
+  detailTab: "brief" | "sources" | "international" | "actions" | "bridge";
   setDetailTab: (t: ScoutState["detailTab"]) => void;
 
   /** confirm modal for rights-unverified sources */
