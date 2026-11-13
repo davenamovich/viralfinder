@@ -11,6 +11,7 @@
 import { googleTrendsProvider } from "./providers/google-trends-provider";
 import { fallbackTrendsProvider } from "./providers/fallback-provider";
 import { twitterProvider, isTwitterConfigured } from "./providers/twitter-provider";
+import { instagramProvider, tiktokProvider } from "./providers/instagram-provider";
 import type { RawTrendRow, TrendProvider } from "./providers/trends-provider";
 import { classifyNiche } from "./classifier";
 import {
@@ -31,7 +32,7 @@ import type {
 import { countryLabel, languageLabel } from "./types";
 import { cacheReadThrough, TTL, cacheInvalidatePrefix } from "./cache";
 
-const PRIMARY_PROVIDERS: TrendProvider[] = [googleTrendsProvider, fallbackTrendsProvider];
+const PRIMARY_PROVIDERS: TrendProvider[] = [googleTrendsProvider, fallbackTrendsProvider, instagramProvider, tiktokProvider];
 
 export interface FetchTrendsResult {
   trends: TrendOpportunity[];
@@ -51,23 +52,48 @@ export async function fetchTrends(filters: TrendFilters): Promise<FetchTrendsRes
   return cacheReadThrough(cacheKey, 60 * 1000, async () => {
     const primary = await loadRaw(filters.country, filters.language);
 
-    // Pull supplementary X/Twitter trends in parallel (don't block the main feed on this).
+    // Pull supplementary trends from parallel providers (don't block the main feed).
     // We merge them on top of the primary Google Trends results so the user sees BOTH
-    // what people are searching for (Google) AND what they're tweeting about (X).
+    // what people are searching for (Google) AND what they're posting about on other platforms.
     const supplementarySources: string[] = [];
     let twitterRows: RawTrendRow[] = [];
+    let instagramRows: RawTrendRow[] = [];
+    let tiktokRows: RawTrendRow[] = [];
     try {
-      const available = await twitterProvider.available();
-      // Even when twitter-cli isn't configured (no cookies), the provider falls back to
-      // trends24.in — so we still get X trends without auth.
-      if (available || !isTwitterConfigured()) {
+      // Twitter/X trends (agent reach or trends24.in fallback)
+      const twitterAvailable = await twitterProvider.available();
+      if (twitterAvailable || !isTwitterConfigured()) {
         twitterRows = await twitterProvider.fetchRaw(filters.country, filters.language);
         if (twitterRows.length > 0) {
           supplementarySources.push(isTwitterConfigured() ? "twitter_agent_reach" : "trends24_in");
         }
       }
+      // Instagram trends
+      try {
+        const igAvailable = await instagramProvider.available();
+        if (igAvailable) {
+          instagramRows = await instagramProvider.fetchRaw(filters.country, filters.language);
+          if (instagramRows.length > 0) {
+            supplementarySources.push("instagram_explore");
+          }
+        }
+      } catch (err) {
+        console.warn("[trend-scout] Instagram supplementary fetch failed:", err);
+      }
+      // TikTok trends
+      try {
+        const ttAvailable = await tiktokProvider.available();
+        if (ttAvailable) {
+          tiktokRows = await tiktokProvider.fetchRaw(filters.country, filters.language);
+          if (tiktokRows.length > 0) {
+            supplementarySources.push("tiktok_discover");
+          }
+        }
+      } catch (err) {
+        console.warn("[trend-scout] TikTok supplementary fetch failed:", err);
+      }
     } catch (err) {
-      console.warn("[trend-scout] Twitter/trends24 supplementary fetch failed:", err);
+      console.warn("[trend-scout] Supplementary trends fetch failed:", err);
     }
 
     // Merge: dedupe by title (case-insensitive). Primary (Google Trends) wins on conflicts.
@@ -81,6 +107,20 @@ export async function fetchTrends(filters: TrendFilters): Promise<FetchTrendsRes
       }
     }
     for (const r of twitterRows) {
+      const key = r.title.toLowerCase();
+      if (!seenTitles.has(key)) {
+        seenTitles.add(key);
+        mergedRows.push(r);
+      }
+    }
+    for (const r of instagramRows) {
+      const key = r.title.toLowerCase();
+      if (!seenTitles.has(key)) {
+        seenTitles.add(key);
+        mergedRows.push(r);
+      }
+    }
+    for (const r of tiktokRows) {
       const key = r.title.toLowerCase();
       if (!seenTitles.has(key)) {
         seenTitles.add(key);
@@ -117,6 +157,8 @@ export function refreshTrendsCache(): void {
   cacheInvalidatePrefix("orch:");
   cacheInvalidatePrefix("gtrss:");
   cacheInvalidatePrefix("t24:");
+  cacheInvalidatePrefix("ig:");
+  cacheInvalidatePrefix("tt:");
 }
 
 async function loadRaw(country: string, language: string): Promise<{
@@ -233,6 +275,10 @@ function dataLabelForRow(row: RawTrendRow): string {
   switch (row.source) {
     case "google_trends_rss":
       return "Live — Google Trends RSS";
+    case "instagram_explore":
+      return "Live — Instagram Explore (estimated counts)";
+    case "tiktok_discover":
+      return "Live — TikTok Discover (estimated counts)";
     case "trends24_in":
       return "Live — X (Twitter) trends via trends24.in (no auth)";
     case "twitter_agent_reach":

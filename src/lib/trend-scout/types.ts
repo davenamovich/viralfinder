@@ -71,6 +71,8 @@ export type RightsStatus =
 
 export type DataSource =
   | "google_trends_rss"
+  | "instagram_explore"
+  | "tiktok_discover"
   | "fallback_curated"
   | "youtube_api"
   | "youtube_search_url"

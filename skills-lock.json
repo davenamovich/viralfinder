@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "skills": {
+    "browser-act": {
+      "source": "browser-act/skills",
+      "sourceType": "github",
+      "skillPath": "browser-act/SKILL.md",
+      "computedHash": "3794c63095af2faa274f5784ab5e9a507e0f0d51318c22e0da7574a72e354961"
+    },
+    "social-viral-content-finder": {
+      "source": "sam6dvpte34/social-media-skill",
+      "sourceType": "github",
+      "skillPath": "skills/social-viral-content-finder/SKILL.md",
+      "computedHash": "2e08fc608c83295e494d013ea9badd6898efa2079a0c7015fc42f55740630590"
+    }
+  }
+}
