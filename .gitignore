@@ -52,3 +52,26 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# P&R Trend Scout — local runtime + build artifacts
+# SQLite database (user actions live here, machine-specific path)
+db/*.db
+db/*.db-journal
+db/*.db-shm
+db/*.db-wal
+# Runtime process IDs and zscripts state
+.zscripts/dev.pid
+.zscripts/dev.log
+# Tool-result scratch files (debug output)
+tool-results/
+# Screenshots saved during verification (large binaries)
+download/*.png
+download/*.jpg
+download/*.jpeg
+download/*.webp
+# Local venvs and global npm installs (machine-specific)
+.agent-reach-venv/
+.npm-global/
+# Local config that should never be in the repo
+.config/yt-dlp/
+.mcporter/
