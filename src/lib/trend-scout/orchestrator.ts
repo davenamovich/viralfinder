@@ -48,9 +48,9 @@ export interface FetchTrendsResult {
 }
 
 export async function fetchTrends(filters: TrendFilters): Promise<FetchTrendsResult> {
-  const cacheKey = `orch:${filters.country}:${filters.language}:${filters.niche}:${filters.timeWindow}`;
+  const cacheKey = `orch:${filters.country}:${filters.language}:${filters.niche}:${filters.timeWindow}:${filters.platform}`;
   return cacheReadThrough(cacheKey, 60 * 1000, async () => {
-    const primary = await loadRaw(filters.country, filters.language);
+    const primary = await loadRaw(filters.country, filters.language, filters.platform);
 
     // Pull supplementary trends from parallel providers (don't block the main feed).
     // We merge them on top of the primary Google Trends results so the user sees BOTH
@@ -161,11 +161,37 @@ export function refreshTrendsCache(): void {
   cacheInvalidatePrefix("tt:");
 }
 
-async function loadRaw(country: string, language: string): Promise<{
+async function loadRaw(country: string, language: string, platform: Platform | "All" = "All"): Promise<{
   rows: RawTrendRow[];
   usedProvider: string;
   usedFallback: boolean;
 }> {
+  // If a specific platform is requested, only load from that provider
+  if (platform !== "All") {
+    const providerMap: Record<Platform, TrendProvider> = {
+      google_trends_rss: googleTrendsProvider,
+      instagram_explore: instagramProvider,
+      tiktok_discover: tiktokProvider,
+      twitter_agent_reach: twitterProvider,
+      trends24_in: trends24Provider,
+      fallback_curated: fallbackTrendsProvider,
+    };
+    const selectedProvider = providerMap[platform];
+    try {
+      const available = await selectedProvider.available();
+      if (!available) {
+        return { rows: [], usedProvider: selectedProvider.name, usedFallback: false };
+      }
+      const rows = await selectedProvider.fetchRaw(country, language);
+      if (rows.length > 0) {
+        return { rows, usedProvider: selectedProvider.name, usedFallback: selectedProvider.name === "fallback_curated" };
+      }
+    } catch (err) {
+      console.warn(`[trend-scout] platform ${platform} provider failed:`, err);
+      return { rows: [], usedProvider: selectedProvider.name, usedFallback: true };
+    }
+  }
+  // Original: load primary providers in order, return first with results
   for (let i = 0; i < PRIMARY_PROVIDERS.length; i++) {
     const p = PRIMARY_PROVIDERS[i];
     try {

@@ -227,12 +227,21 @@ export interface UsedTrendRow {
   usedAt: string;
 }
 
+export type Platform =
+  | "google_trends_rss"
+  | "instagram_explore"
+  | "tiktok_discover"
+  | "twitter_agent_reach"
+  | "trends24_in"
+  | "fallback_curated";
+
 export interface TrendFilters {
   country: string;
   language: string;
   niche: Niche | "All";
   timeWindow: TimeWindow;
   contentType: ContentType;
+  platform: Platform | "All";
 }
 
 export interface PRRoutingPayload {
