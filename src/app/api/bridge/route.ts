@@ -69,18 +69,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Apply BYOK key overrides for this request only.
-  // The override functions set module-level variables in pnr.ts and agent37.ts
-  // so subsequent calls in this request use the user's pasted keys instead of
-  // the server's env vars. We reset to the env var (or empty) on every request
-  // so a request without a BYOK key never inherits a previous request's key.
-  setPnrKeyOverride(body.pnrKey ?? process.env.PNR_MCP_KEY ?? "");
-  setAgent37KeyOverride(body.agent37Key ?? process.env.AGENT37_KEY ?? process.env.AGENT37_API_KEY ?? "");
+  // BYOK keys are now request-scoped — passed directly to pipeline functions.
+  // No module-level state is set; each request carries its own key, eliminating
+  // race conditions with concurrent requests. The keys come from the request body
+  // (body.pnrKey / body.agent37Key) or fall back to server env vars for this request only.
+  const pnrKey = body.pnrKey ?? process.env.PNR_MCP_KEY ?? "";
+  const agent37Key = body.agent37Key ?? process.env.AGENT37_KEY ?? process.env.AGENT37_API_KEY ?? "";
 
   switch (body.action) {
     case "status":
       return NextResponse.json({
-        pnr: getPnrConfig(),
+        pnr: getPnrConfig(pnrKey),
         agent37: {
           configured: isAgent37Configured(),
           mode: agent37Mode(),
@@ -93,6 +92,7 @@ export async function POST(req: NextRequest) {
         niche: body.niche,
         region: body.region,
         limit: body.limit ?? 5,
+        key: pnrKey,
       });
       return NextResponse.json(r);
     }
@@ -106,18 +106,18 @@ export async function POST(req: NextRequest) {
 
     case "verify": {
       if (!body.trend) return NextResponse.json({ error: "Missing trend" }, { status: 400 });
-      const cfg = getPnrConfig();
+      const cfg = getPnrConfig(pnrKey);
       if (!cfg.configured) {
         return NextResponse.json({
           ok: false,
           warning: "P&R MCP key not configured. Paste your key in the Bridge Settings panel (BYOK) or set PNR_MCP_KEY server-side.",
         });
       }
-      const init = await pnrInitialize();
+      const init = await pnrInitialize(pnrKey);
       if (!init.ok) {
         return NextResponse.json({ ok: false, warning: init.error });
       }
-      const r = await stepVerify(body.trend, init.value);
+      const r = await stepVerify(body.trend, init.value, undefined, pnrKey);
       return NextResponse.json({ ...r, sessionId: init.value });
     }
 
@@ -135,35 +135,35 @@ export async function POST(req: NextRequest) {
       if (!format) {
         return NextResponse.json({ error: "Missing format (uiFormat or format)" }, { status: 400 });
       }
-      const cfg = getPnrConfig();
+      const cfg = getPnrConfig(pnrKey);
       if (!cfg.configured) {
         return NextResponse.json({
           ok: false,
           warning: "P&R MCP key not configured. Paste your key in the Bridge Settings panel (BYOK) or set PNR_MCP_KEY server-side.",
         });
       }
-      const init = await pnrInitialize();
+      const init = await pnrInitialize(pnrKey);
       if (!init.ok) {
         return NextResponse.json({ ok: false, warning: init.error });
       }
-      const r = await stepCreate(body.trend, format, body.brandProfile, init.value, undefined, briefFlavor);
+      const r = await stepCreate(body.trend, format, body.brandProfile, init.value, undefined, briefFlavor, pnrKey);
       return NextResponse.json({ ...r, sessionId: init.value });
     }
 
     case "request_mp4": {
       if (!body.pageUrl) return NextResponse.json({ error: "Missing pageUrl" }, { status: 400 });
-      const cfg = getPnrConfig();
+      const cfg = getPnrConfig(pnrKey);
       if (!cfg.configured) {
         return NextResponse.json({
           ok: false,
           warning: "P&R MCP key not configured. Paste your key in the Bridge Settings panel (BYOK) or set PNR_MCP_KEY server-side.",
         });
       }
-      const init = await pnrInitialize();
+      const init = await pnrInitialize(pnrKey);
       if (!init.ok) {
         return NextResponse.json({ ok: false, warning: init.error });
       }
-      const r = await stepRequestMp4(body.pageUrl, body.caption, init.value);
+      const r = await stepRequestMp4(body.pageUrl, body.caption, init.value, undefined, pnrKey);
       return NextResponse.json({ ...r, sessionId: init.value });
     }
 
@@ -178,20 +178,21 @@ export async function POST(req: NextRequest) {
         caption: body.caption,
         platforms: body.platforms,
         approvedBy: body.approvedBy,
+        key: agent37Key,
       });
       return NextResponse.json(r);
     }
 
     case "research_brand": {
       if (!body.brand) return NextResponse.json({ error: "Missing brand" }, { status: 400 });
-      const cfg = getPnrConfig();
+      const cfg = getPnrConfig(pnrKey);
       if (!cfg.configured) {
         return NextResponse.json({
           ok: false,
           warning: "P&R MCP key not configured. Paste your key in the Bridge Settings panel (BYOK) or set PNR_MCP_KEY server-side.",
         });
       }
-      const init = await pnrInitialize();
+      const init = await pnrInitialize(pnrKey);
       if (!init.ok) {
         return NextResponse.json({ ok: false, warning: init.error });
       }
